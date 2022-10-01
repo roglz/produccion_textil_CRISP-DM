@@ -1,0 +1,345 @@
+---
+title: "R_Garment_Study"
+author: ""
+date: '2022-09-21'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Cargando librerías
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(magrittr) #For pipelines
+library(kableExtra) #For tables
+library(plotly)
+library(gridExtra)
+```
+
+## Cargando datos
+
+```{r}
+data = read.csv("garments_worker_productivity.csv",header=T,sep = ",",dec =".")
+```
+
+Revisando la estructura vemos que las fechas no están en el formato más apropiado (fechas), el número de trabajadores no son de tipo entero, cuando debería, y existen datos faltantes para la columna `wip`.
+```{r}
+data %>% 
+  glimpse() %>% 
+  head %>% 
+  kbl() %>% 
+  kable_paper() %>% 
+  scroll_box(width = "100%", height = "200px")
+
+```
+
+Siendo más específicos la única columna con valores perdidos es `wip` con 506.
+
+```{r}
+data %>% 
+  sapply(function(no_NA) sum(is.na(no_NA))) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%", height = "200px")
+```
+Estos valores perdido en realidad indican ausencia de valor, por lo tanto podemos sustituir los NA por 0
+
+```{r}
+data <- mutate_all(data, ~replace(., is.na(.), 0))
+```
+
+
+## Análisis Exploratorio (Univariado)
+
+En una primera observación de los datos vemos que existen variables iguales cuyos nombres son diferentes (finishing de department), y que no existen registros para los días viernes de la semana.
+
+```{r echo=FALSE}
+data %>% 
+  group_by(quarter) %>% 
+  count(quarter) -> data_quarter
+
+data %>% 
+  group_by(department) %>% 
+  count(department) -> data_depa
+
+data %>% 
+  group_by(day) %>% 
+  count(day) -> data_day
+
+data %>% 
+  group_by(team) %>% 
+  count(team) -> data_team
+
+data %>% 
+  group_by(no_of_style_change) %>% 
+  count(no_of_style_change) -> data_style
+
+kable(list(data_team, data_quarter, data_depa, data_day, data_style)) %>% 
+  kable_material(c("striped", "hover")) %>% 
+  scroll_box(width = "100%", height = "300px")
+```
+
+
+```{r echo=FALSE}
+data %>% 
+  summarise(mean = mean(targeted_productivity), max = max(targeted_productivity), min= min(targeted_productivity), std = sd(targeted_productivity)) -> summ_targP
+
+data %>% 
+  summarise(mean = mean(actual_productivity   ), max = max(actual_productivity   ), min= min(actual_productivity   ), std = sd(actual_productivity   )) -> summ_actP
+
+
+data %>% 
+  summarise(mean = mean(smv), max = max(smv), min= min(smv), std = sd(smv)) -> summ_smv
+
+data %>% 
+  summarise(mean = mean(wip), max = max(wip), min= min(wip), std = sd(wip)) -> summ_wip
+
+data %>% 
+  summarise(mean = mean(over_time), max = max(over_time), min= min(over_time), std = sd(over_time)) -> summ_over_time
+
+data %>% 
+  summarise(mean = mean(incentive), max = max(incentive), min= min(incentive), std = sd(incentive)) -> summ_incentive
+
+data %>% 
+  summarise(mean = mean(idle_time), max = max(idle_time), min= min(idle_time), std = sd(idle_time)) -> summ_idle_time
+
+data %>% 
+  summarise(mean = mean(idle_men), max = max(idle_men), min= min(idle_men), std = sd(idle_men)) -> summ_idle_men
+
+data %>% 
+  summarise(mean = mean(no_of_workers ), max = max(no_of_workers ), min= min(no_of_workers ), std = sd(no_of_workers )) -> summ_work
+
+data_names <- c("targeted_productivity", "actual_productivity", "smv",
+                "wip", "over_time", "incentive", "idle_time", "idle_men", 
+                "no_of_workers")
+
+cbind(data_names, rbind(summ_targP, summ_actP, summ_smv,
+                        summ_wip, summ_over_time, summ_incentive,
+                        summ_idle_time, summ_idle_men, summ_work)) %>%
+  kbl() %>% 
+  kable_paper() %>% 
+  scroll_box(width = "100%", height = "200px")
+```
+
+
+```{r echo=FALSE}
+fig1 <- plot_ly(x = data$targeted_productivity, type = "histogram", name = 'targeted_productivity', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+fig2 <- plot_ly(x = data$actual_productivity, type = "histogram", name = 'actual_productivity', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+fig3 <- plot_ly(x = data$smv, type = "histogram", name = 'smv', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+fig4 <- plot_ly(x = data$wip, type = "histogram", name = 'wip', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+fig5 <- plot_ly(x = data$over_time, type = "histogram", name = 'over_time', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+fig6 <- plot_ly(x = data$incentive, type = "histogram", name = 'incentive', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+fig7 <- plot_ly(x = data$idle_time, type = "histogram", name = 'idle_time', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+fig8 <- plot_ly(x = data$idle_men, type = "histogram", name = 'idle_men', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+fig9 <- plot_ly(x = data$no_of_workers, type = "histogram", name = 'no_of_workers', showlegend = FALSE, 
+                marker = list(color = 'rgb(67, 98, 204)',
+                      line = list(color = 'rgb(225, 230, 247)',
+                                  width = 0.5)))
+
+```
+
+### Histogramas
+```{r echo=FALSE}
+fig <- subplot(fig1, fig2, fig3,
+              fig4, fig5, fig6,
+              fig7, fig8, fig9,
+              nrows = 3, margin = 0.05) %>% 
+  layout(annotations = list(
+    list(x = 0.08 , y = 1.05, text = "targeted_productivity", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.5 , y = 1.05, text = "actual_productivity", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.87 , y = 1.05, text = "smv", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.1 , y = 0.64, text = "wip", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.5 , y = 0.64, text = "over_time", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.9 , y = 0.64, text = "incentive", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.1 , y = 0.27, text = "idle_time", showarrow = F, xref='paper', yref='paper'),
+        list(x = 0.5 , y = 0.27, text = "idle_men", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.95 , y = 0.27, text = "no_of_workers", showarrow = F, xref='paper', yref='paper')
+    ))
+
+
+fig
+```
+
+### Gráficas de caja
+
+```{r echo=FALSE}
+fig1 <- plot_ly(y = data$targeted_productivity, type = "box", name = 'targeted_productivity', showlegend = FALSE)
+fig2 <- plot_ly(y = data$actual_productivity, type = "box", name = 'actual_productivity', showlegend = FALSE)
+fig3 <- plot_ly(y = data$smv, type = "box", name = 'smv', showlegend = FALSE)
+fig4 <- plot_ly(y = data$wip, type = "box", name = 'wip', showlegend = FALSE)
+fig5 <- plot_ly(y = data$over_time, type = "box", name = 'over_time', showlegend = FALSE)
+fig6 <- plot_ly(y = data$incentive, type = "box", name = 'incentive', showlegend = FALSE)
+fig7 <- plot_ly(y = data$idle_time, type = "box", name = 'idle_time', showlegend = FALSE)
+fig8 <- plot_ly(y = data$idle_men, type = "box", name = 'idle_men', showlegend = FALSE)
+fig9 <- plot_ly(y = data$no_of_workers, type = "box", name = 'no_of_workers', showlegend = FALSE)
+
+
+fig <- subplot(fig1, fig2, fig3,
+              fig4, fig5, fig6,
+              fig7, fig8, fig9,
+              nrows = 3, margin = 0.05)
+
+
+fig
+```
+
+#### Analizando distribución de las variables
+
+
+```{r echo=FALSE}
+p1 <- ggplot(data, aes(sample=targeted_productivity))+
+  geom_qq() + geom_qq_line() + labs(title="targeted_productivity")
+
+p2 <- ggplot(data, aes(sample=actual_productivity))+
+  geom_qq() + geom_qq_line() + labs(title="actual_productivity")
+
+p3 <- ggplot(data, aes(sample=smv))+
+  geom_qq() + geom_qq_line() + labs(title="smv")
+
+
+p4 <- ggplot(data, aes(sample=wip))+
+  geom_qq() + geom_qq_line() + labs(title="wip")
+
+p5 <- ggplot(data, aes(sample=over_time))+
+  geom_qq() + geom_qq_line() + labs(title="over_time")
+
+p6 <- ggplot(data, aes(sample=incentive))+
+  geom_qq() + geom_qq_line() + labs(title="incentive")
+
+
+p7 <- ggplot(data, aes(sample=idle_time))+
+  geom_qq() + geom_qq_line() + labs(title="idle_time")
+
+p8 <- ggplot(data, aes(sample=idle_men))+
+  geom_qq() + geom_qq_line() + labs(title="idle_men")
+
+p9 <- ggplot(data, aes(sample=idle_men))+
+  geom_qq() + geom_qq_line() + labs(title="idle_men")
+
+
+grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, p9, ncol = 3, nrow = 3)
+
+```
+
+
+## Análisis Exploratorio (Multivariado)
+
+```{r echo=FALSE}
+#Definiendo paleta de colores
+pl_colorscale=list(c(0.0, '#19d3f3'),
+
+               c(0.333, '#19d3f3'),
+
+               c(0.333, '#e763fa'),
+
+               c(0.666, '#e763fa'),
+
+               c(0.666, '#636efa'),
+
+               c(1, '#636efa'))
+
+
+```
+
+```{r echo=FALSE}
+axis = list(showline=FALSE,
+
+            zeroline=FALSE,
+
+            gridcolor='#ffff',
+
+            ticklen=4)
+
+
+fig <- data %>%
+  plot_ly() 
+
+fig <- fig %>%
+  add_trace(
+    type = 'splom',
+    dimensions = list(
+      list(label='targ_prod', values=data$targeted_productivity),
+      list(label='act_prod', values=data$actual_productivity),
+      list(label='smv', values=data$smv),
+      list(label='over_time', values=data$over_time)
+    ),
+
+    marker = list(
+      colorscale = pl_colorscale,
+      size = 7,
+      line = list(
+        width = 1,
+        color = 'rgb(230,230,230)'
+      )
+
+    )
+
+  ) 
+
+
+```
+
+```{r echo=FALSE}
+fig <- fig %>%
+
+  layout(
+
+    title= '',
+
+    hovermode='closest',
+
+    dragmode= 'select',
+
+    plot_bgcolor='rgba(240,240,240, 0.95)',
+
+    xaxis=list(domain=NULL, showline=F, zeroline=F, gridcolor='#ffff', ticklen=4),
+
+    yaxis=list(domain=NULL, showline=F, zeroline=F, gridcolor='#ffff', ticklen=4),
+
+    xaxis2=axis,
+
+    xaxis3=axis,
+
+    xaxis4=axis,
+
+    yaxis2=axis,
+
+    yaxis3=axis,
+
+    yaxis4=axis
+
+  )
+
+
+fig
+```
+
+
+
