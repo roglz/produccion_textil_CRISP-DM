@@ -402,9 +402,9 @@ d
 ```
 # Creación de nuevo dataset
 ```{r}
-data_1 <- select(data, -c(date,wip,over_time,incentive,idle_time,no_of_workers,actual_productivity))
+data_1 <- select(data, -c(date,wip,over_time,incentive,idle_time,no_of_workers))
 # Para generar el csv
-write.csv(data_1,paste(dir,"tidy_dataset.csv", sep=""),row.names = TRUE)
+write.csv(data_1,paste(dir,"tidy_dataset.csv", sep=""),row.names = FALSE)
 ```
 
 
